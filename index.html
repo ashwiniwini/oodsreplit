@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { background: #111; color: white; font-family: sans-serif; padding: 20px; }
+        .match-btn { background: #222; border: 1px solid #444; padding: 15px; margin: 10px 0; cursor: pointer; border-radius: 8px; display: flex; justify-content: space-between; width: 100%; max-width: 400px; }
+        .match-btn:hover { border-color: #00ffcc; }
+        .live-label { color: #ff4444; font-weight: bold; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+        #live-view { display: none; }
+        .odds-val { font-size: 2em; color: #00ffcc; }
+    </style>
+</head>
+<body>
+    <div id="list-view">
+        <h1>🏏 Select Match</h1>
+        <div id="list-container">Loading...</div>
+    </div>
+
+    <div id="live-view">
+        <button onclick="location.reload()">⬅ Back</button>
+        <h2 id="match-title"></h2>
+        <div id="odds-box"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        // Fetch and Sort Matches (Live first)
+        fetch('/api/matches').then(res => res.json()).then(data => {
+            const container = document.getElementById('list-container');
+            container.innerHTML = "";
+            
+            // This line puts live matches at the top
+            data.sort((a, b) => b.inPlay - a.inPlay);
+
+            data.forEach(m => {
+                const div = document.createElement('div');
+                div.className = 'match-btn';
+                div.innerHTML = `<span>${m.matchName}</span> ${m.inPlay ? '<span class="live-label">LIVE</span>' : ''}`;
+                div.onclick = () => {
+                    document.getElementById('list-view').style.display = 'none';
+                    document.getElementById('live-view').style.display = 'block';
+                    document.getElementById('match-title').innerText = m.matchName;
+                    socket.emit('join-match', String(m.matchid));
+                };
+                container.appendChild(div);
+            });
+        });
+
+        socket.on('match-update', (data) => {
+            const runners = data.body.cricket[0].runners;
+            let html = "";
+            runners.forEach(r => {
+                const price = r.back[0] ? r.back[0].price : '---';
+                html += `<div>${r.name}: <span class="odds-val">${price}</span></div>`;
+            });
+            document.getElementById('odds-box').innerHTML = html;
+        });
+    </script>
+</body>
+</html>
